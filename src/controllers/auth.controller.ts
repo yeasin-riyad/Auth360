@@ -1,10 +1,13 @@
 import { Request, Response } from "express";
-import { registerSchema } from "./auth.schema";
+import { loginSchema, registerSchema } from "./auth.schema";
 import * as jwt from "jsonwebtoken";
 
 import User from "../models/user.model";
 import { sendEmail } from "../lib/email";
-import { hashPassword } from "../lib/hash";
+import { checkPassword, hashPassword } from "../lib/hash";
+import { createAccessToken, createRefreshToken } from "../lib/token";
+// import { authenticator } from "otplib";
+
 
 function getAppUrl() {
   return process.env.APP_URL || `http://localhost:${process.env.PORT}`;
@@ -112,6 +115,103 @@ export async function verifyEmailHandler(req: Request, res: Response) {
     return res.json({ message: "Email is now verified! You can login" });
   } catch (err) {
     console.log(err);
+    return res.status(500).json({
+      message: "Internal server error",
+    });
+  }
+}
+
+
+export async function loginHandler(req: Request, res: Response) {
+  try {
+    const result = loginSchema.safeParse(req.body);
+
+    if (!result.success) {
+      return res.status(400).json({
+        message: "Invalid data!",
+        errors: result.error.flatten(),
+      });
+    }
+
+    const { email, password, twoFactorCode } = result.data;
+    const normalizedEmail = email.toLowerCase().trim();
+
+    const user = await User.findOne({ email: normalizedEmail });
+
+    if (!user) {
+      return res.status(400).json({ message: "Invalid email or password" });
+    }
+
+    const ok = await checkPassword(password, user.passwordHash);
+
+    if (!ok) {
+      return res.status(400).json({ message: "Invalid password" });
+    }
+
+    if (!user.isEmailVerified) {
+      return res
+        .status(403)
+        .json({ message: "Please verify your email before logging in..." });
+    }
+
+    // if (user.twoFactorEnabled) {
+    //   if (!twoFactorCode || typeof twoFactorCode !== "string") {
+    //     return res.status(400).json({
+    //       message: "Two factor code is required",
+    //     });
+    //   }
+
+    //   if (!user.twoFactorSecret) {
+    //     return res.status(400).json({
+    //       message: "Two factor miscofigured for this accounr",
+    //     });
+    //   }
+
+    //   //  verify the code using otpLib
+
+    //   const isValidCode = authenticator.check(
+    //     twoFactorCode,
+    //     user.twoFactorSecret
+    //   );
+
+    //   if (!isValidCode) {
+    //     return res.status(400).json({
+    //       message: "Invalid two factor code",
+    //     });
+    //   }
+    // }
+
+    const accessToken = createAccessToken(
+      user.id,
+      user.role,
+      user.tokenVersion
+    );
+
+    const refreshToken = createRefreshToken(user.id, user.tokenVersion);
+
+    const isProd = process.env.NODE_ENV === "production";
+
+    res.cookie("refreshToken", refreshToken, {
+      httpOnly: true,
+      secure: isProd,
+      sameSite: "lax",
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    });
+
+    return res.status(200).json({
+      message: "Login successfully done",
+      accessToken,
+      user: {
+        id: user.id,
+        email: user.email,
+        role: user.role,
+        isEmailVerified: user.isEmailVerified,
+        twoFactorEnabled: user.twoFactorEnabled,
+      },
+    });
+  } catch (err) {
+    console.log(err);
+
     return res.status(500).json({
       message: "Internal server error",
     });
