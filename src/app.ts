@@ -1,8 +1,8 @@
 import express from "express";
 import cookieParser from "cookie-parser";
 import authRouter from "./routes/auth.routes";
-// import userRouter from "./routes/user.routes";
-// import adminRouter from "./routes/admin.routes";
+import userRouter from "./routes/user.routes";
+import adminRouter from "./routes/admin.routes";
 
 const app = express();
 
@@ -17,7 +17,7 @@ app.get("/health", (_req, res) => {
 });
 
 app.use("/auth", authRouter);
-// app.use("/user", userRouter);
-// app.use("/admin", adminRouter);
+app.use("/user", userRouter);
+app.use("/admin", adminRouter);
 
 export default app;
