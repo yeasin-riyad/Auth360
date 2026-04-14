@@ -8,11 +8,28 @@ import {User} from "../models/user.model";
 import { sendEmail } from "../lib/email";
 import { checkPassword, hashPassword } from "../lib/hash";
 import { createAccessToken, createRefreshToken, verifyRefreshToken } from "../lib/token";
+import { OAuth2Client } from "google-auth-library";
 // import { authenticator } from "otplib";
 
 
 function getAppUrl() {
   return process.env.APP_URL || `http://localhost:${process.env.PORT}`;
+}
+
+function getGoogleClient() {
+  const clientId = process.env.GOOGLE_CLIENT_ID;
+  const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+  const redirectUri = process.env.GOOGLE_REDIRECT_URI;
+
+  if (!clientId || !clientSecret) {
+    throw new Error("Google client id and secret both are missing");
+  }
+
+  return new OAuth2Client({
+    clientId,
+    clientSecret,
+    redirectUri,
+  });
 }
 export async function registerHandler(req: Request, res: Response) {
   try {
