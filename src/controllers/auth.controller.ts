@@ -563,7 +563,7 @@ export async function twoFASetuphandler(req: Request, res: Response) {
 
     const secret = authenticator.generateSecret();
 
-    const issuer = "NodeAdvancedAuthApp";
+    const issuer = "Auth360";
 
     const otpAuthUrl = authenticator.keyuri(user.email, issuer, secret);
 
